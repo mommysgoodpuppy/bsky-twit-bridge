@@ -3,14 +3,21 @@ import json
 import asyncio
 from twikit import Client
 
-async def get_user_tweets(username, count=10):
+import x_patch
+
+x_patch.apply()
+
+# Hard ceiling on pagination, so a large count can't walk the whole timeline.
+MAX_TWEETS = 400
+
+async def get_user_tweets(username, count=10, cookie_path='cookies.json'):
     client = Client('en-US')
-    
+
     # Try to load cookies if they exist
     try:
-        client.load_cookies('cookies.json')
+        client.load_cookies(cookie_path)
     except:
-        print(json.dumps({"error": "Not logged in. Run login script first."}))
+        print(json.dumps({"error": f"Not logged in: could not load {cookie_path}"}))
         return
     
     try:
@@ -18,9 +25,17 @@ async def get_user_tweets(username, count=10):
         user = await client.get_user_by_screen_name(username)
         user_id = user.id
         
+        # One request returns a single page (~20 tweets), whatever count says, so
+        # page through until we have enough for the caller's backfill window.
+        tweets = []
+        page = await client.get_user_tweets(user_id, 'Tweets', count=count)
+        while page:
+            tweets.extend(page)
+            if len(tweets) >= count or len(tweets) >= MAX_TWEETS:
+                break
+            page = await page.next()
+
         tweets_data = []
-        tweets = await client.get_user_tweets(user_id, 'Tweets', count=count)
-        
         for tweet in tweets:
             # Skip retweets
             if tweet.text.startswith('RT @'):
@@ -44,16 +59,48 @@ async def get_user_tweets(username, count=10):
                             media_url = best_stream.url
                     
                     if media_url:
+                        # Bluesky crops to a square unless the embed carries an
+                        # aspectRatio, so pass the original dimensions along.
+                        width = height = None
+                        info = m.original_info
+                        if isinstance(info, dict):
+                            width = info.get('width')
+                            height = info.get('height')
+                        if not (width and height):
+                            aspect_ratio = getattr(m, 'aspect_ratio', None)
+                            if aspect_ratio:
+                                width, height = aspect_ratio
+
+                        # Duration lets the transcode trim without shipping ffprobe.
+                        duration_millis = None
+                        if media_type == 'video':
+                            video_info = m._data.get('video_info') or {}
+                            duration_millis = video_info.get('duration_millis')
+
                         media.append({
                             'type': media_type,
-                            'url': media_url
+                            'url': media_url,
+                            'width': width,
+                            'height': height,
+                            'duration_millis': duration_millis
                         })
             
+            # Only the quoted tweet's id is needed: the bridge turns it into a
+            # Bluesky quote post if it has already mirrored that tweet.
+            quoted_id = None
+            try:
+                quoted = tweet.quote
+                if quoted:
+                    quoted_id = quoted.id
+            except Exception:
+                pass
+
             tweets_data.append({
                 'id': tweet.id,
                 'text': tweet.text,
                 'media': media,
-                'created_at': tweet.created_at
+                'created_at': tweet.created_at,
+                'quoted_id': quoted_id
             })
         
         print(json.dumps(tweets_data))
@@ -63,9 +110,10 @@ async def get_user_tweets(username, count=10):
 if __name__ == '__main__':
     username = sys.argv[1] if len(sys.argv) > 1 else None
     count = int(sys.argv[2]) if len(sys.argv) > 2 else 10
-    
+    cookie_path = sys.argv[3] if len(sys.argv) > 3 else 'cookies.json'
+
     if not username:
         print(json.dumps({"error": "Username required"}))
         sys.exit(1)
-    
-    asyncio.run(get_user_tweets(username, count))
+
+    asyncio.run(get_user_tweets(username, count, cookie_path))

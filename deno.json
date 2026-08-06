@@ -1,0 +1,74 @@
+{
+  "tasks": {
+    // Deno Deploy runs this before deploying; the vendored binaries it writes are
+    // what the cron handler shells out to at runtime.
+    "vendor": "deno run -A scripts/vendor.ts",
+    // Vendoring here matters for memory, not just speed: an isolate gets a fixed
+    // 768MB, and unpacking python+ffmpeg into /tmp at runtime spends a chunk of it.
+    // Vendored in the build, they land in the deployment image instead.
+    //
+    // This needs the build memory limit raised above the default in the dashboard
+    // (it isn't expressible in this file) — otherwise the build dies at the
+    // building step while unpacking python.
+    "build": {
+      "command": "deno check main.ts",
+      "dependencies": ["vendor"]
+    },
+    "start": "deno run -A --unstable-cron --unstable-kv --env-file main.ts",
+    // One-shot mirror pass, no cron and no HTTP server. Handy locally.
+    "mirror": "deno run -A --unstable-kv --env-file scripts/mirror-once.ts",
+    "reset": "deno run -A --unstable-kv --env-file scripts/reset.ts",
+    "dryrun": "deno run -A --unstable-kv --env-file scripts/dryrun.ts",
+    "check": "deno check main.ts",
+    // `deno deploy` uploads the working directory, so the local secret files have
+    // to be excluded explicitly. Keep this list in sync with .gitignore.
+    "deploy": "deno deploy --prod --ignore=.env,.tok,.runtoken,cookies.json,vendor"
+  },
+  "imports": {
+    "@atproto/api": "npm:@atproto/api@^0.13.6"
+  },
+  // Specifying anything here means Deploy sources the whole app config from this
+  // file and ignores the dashboard settings.
+  "deploy": {
+    "org": "mommysgoodpuppy",
+    "app": "bsky-twit-bridge",
+    "build": "deno task build",
+    "runtime": {
+      "type": "dynamic",
+      "entrypoint": "main.ts"
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
