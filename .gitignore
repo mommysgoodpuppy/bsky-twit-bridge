@@ -13,6 +13,7 @@ posts.json
 
 # Vendored python/ffmpeg binaries, fetched by `deno task vendor`
 vendor/
+.tools/
 
 # Temporary video processing files
 temp/

@@ -22,7 +22,7 @@
     "check": "deno check main.ts",
     // `deno deploy` uploads the working directory, so the local secret files have
     // to be excluded explicitly. Keep this list in sync with .gitignore.
-    "deploy": "deno deploy --prod --ignore=.env,.tok,.runtoken,cookies.json,vendor"
+    "deploy": "deno deploy --prod --ignore=.env,.tok,.runtoken,cookies.json,vendor,.tools"
   },
   "imports": {
     "@atproto/api": "npm:@atproto/api@^0.13.6"
@@ -39,36 +39,5 @@
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

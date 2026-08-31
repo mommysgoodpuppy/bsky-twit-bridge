@@ -3,10 +3,6 @@ import json
 import asyncio
 from twikit import Client
 
-import x_patch
-
-x_patch.apply()
-
 # Hard ceiling on pagination, so a large count can't walk the whole timeline.
 MAX_TWEETS = 400
 
@@ -16,7 +12,7 @@ async def get_user_tweets(username, count=10, cookie_path='cookies.json'):
     # Try to load cookies if they exist
     try:
         client.load_cookies(cookie_path)
-    except:
+    except Exception:
         print(json.dumps({"error": f"Not logged in: could not load {cookie_path}"}))
         return
     

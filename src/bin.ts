@@ -1,5 +1,5 @@
 /**
- * Resolves the binaries the mirror shells out to: CPython (for twikit) and
+ * Resolves the binaries the mirror shells out to: CPython (for twifork) and
  * ffmpeg.
  *
  * `deno task vendor` fetches these during the Deploy build, but the docs don't
@@ -17,6 +17,7 @@
 const PYTHON_RELEASE = "20260728"
 const PYTHON_VERSION = "3.11.15"
 const FFMPEG_VERSION = "4.1.0"
+const TWIFORK_VERSION = "2.4.0"
 
 const BUILD_VENDOR = "vendor"
 
@@ -87,16 +88,24 @@ async function installPython(dir: string): Promise<string> {
         await Deno.chmod(bin, 0o755)
     }
 
-    // twikit goes into this interpreter's own site-packages, so nothing needs
+    // twifork provides the `twikit` import as a drop-in replacement. Pin it so a
+    // future scraper release cannot silently change a production deployment.
+    // It goes into this interpreter's own site-packages, so nothing needs
     // PYTHONPATH at runtime.
     const check = await new Deno.Command(bin, {
-        args: ["-c", "import twikit"],
+        args: [
+            "-c",
+            `import importlib.metadata; raise SystemExit(importlib.metadata.version('twifork') != '${TWIFORK_VERSION}')`,
+        ],
         stdout: "null",
         stderr: "null",
     }).output()
     if (check.code !== 0) {
-        console.log("bin: installing twikit")
-        await run(bin, ["-m", "pip", "install", "--no-cache-dir", "twikit"])
+        console.log(`bin: installing twifork ${TWIFORK_VERSION}`)
+        await run(bin, [
+            "-m", "pip", "install", "--no-cache-dir", "--upgrade",
+            `twifork==${TWIFORK_VERSION}`,
+        ])
     }
     return bin
 }

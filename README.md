@@ -34,11 +34,12 @@ env vars from .env.example as secrets.
 
 ## subprocesses and vendored binaries
 
-Tweet fetching is Python (`get_tweets.py` + twikit) and video transcoding is ffmpeg.
+Tweet fetching is Python (`get_tweets.py` +
+[twifork](https://github.com/PawiX25/twifork)) and video transcoding is ffmpeg.
 Deploy's runtime can spawn subprocesses, but the toolchain in the image isn't
 contractual, so the bridge brings its own:
 
-- CPython 3.11 standalone (~31MB) with twikit installed into its site-packages
+- CPython 3.11 standalone (~31MB) with twifork installed into its site-packages
 - ffmpeg (~68MB), from the `@ffmpeg-installer/linux-x64` npm tarball
 
 Both are gzip tarballs, extracted with the `tar` in the build image. `src/bin.ts`
@@ -59,7 +60,7 @@ duration, and Twitter reports that in the tweet payload.
 - copy .env.example to .env and fill it in
 - Twitter cookies (ct0, auth_token) go in `TWITTER_CT0` / `TWITTER_AUTH_TOKEN`
   rather than a cookies.json, so they can be rotated as Deploy secrets
-- locally: `pip install twikit`, and have ffmpeg on PATH for video posts
+- locally: `pip install twifork==2.4.0`, and have ffmpeg on PATH for video posts
 
 ## tasks
 
@@ -98,6 +99,6 @@ square.
 
 ## notes
 
-`x_patch.py` keeps twikit working against X's current responses; see the comments in
-that file. If tweet fetching starts failing with "Couldn't get KEY_BYTE indices" or a
-KeyError, that patch is the place to look.
+The scraper is pinned because X's private web API changes without notice. Twifork is
+a maintained, drop-in fork of twikit that includes the current transaction-ID and
+response-shape fixes; update and test the pin in `src/bin.ts` when X changes again.
