@@ -200,3 +200,6 @@ dist
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Agent scratch files
+/_scratch/
