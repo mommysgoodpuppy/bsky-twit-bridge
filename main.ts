@@ -5,6 +5,7 @@ import { runMirror } from "./src/mirror.ts"
 import { resetAll } from "./src/admin.ts"
 import { config } from "./src/config.ts"
 import * as state from "./src/state.ts"
+import { getStatus, renderDashboard } from "./src/dashboard.ts"
 
 // Deno.cron won't start a run while the previous one is still going. It fires on
 // production and git branch timelines, but not on preview revisions, so ordinary
@@ -56,6 +57,15 @@ Deno.serve(async (req) => {
             case '/reset':
                 return Response.json(await resetAll())
         }
+    }
+
+    if (url.pathname === '/status.json') return Response.json(await getStatus())
+
+    // Browsers get the status page; scripts and curl keep the JSON below.
+    if (url.pathname === '/' && req.headers.get('accept')?.includes('text/html')) {
+        return new Response(renderDashboard(await getStatus()), {
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+        })
     }
 
     return Response.json({

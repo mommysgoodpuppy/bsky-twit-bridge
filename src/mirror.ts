@@ -331,14 +331,15 @@ export async function runMirror({ force = false }: { force?: boolean } = {}) {
         console.log('another run holds the lock; skipping')
         return { mirrored: 0, skipped: 0, lockHeld: true }
     }
+    const started = Date.now()
     try {
         const summary = await checkNewPosts(holder)
-        await state.setLastRun({ ok: true, ...summary })
+        await state.setLastRun({ ok: true, ...summary, durationMs: Date.now() - started })
         return summary
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         console.error('mirror run failed:', message)
-        await state.setLastRun({ ok: false, error: message })
+        await state.setLastRun({ ok: false, error: message, durationMs: Date.now() - started })
         throw error
     } finally {
         await state.releaseLock(holder)

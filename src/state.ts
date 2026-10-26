@@ -148,7 +148,48 @@ export async function setBackfill(backfill: Backfill): Promise<void> {
 }
 
 export async function setLastRun(summary: unknown): Promise<void> {
-    await kv.set(['lastRun'], { at: new Date().toISOString(), ...(summary as object) })
+    const run = { at: new Date().toISOString(), ...(summary as object) }
+    await kv.set(['lastRun'], run)
+    // History for the status page. KV expires old runs itself, so a week of
+    // 5-minute ticks never needs pruning.
+    await kv.set(['runs', run.at], run, { expireIn: RUN_HISTORY_MS })
+}
+
+const RUN_HISTORY_MS = 7 * 86400000
+
+export interface Run {
+    at: string
+    ok: boolean
+    error?: string
+    mirrored?: number
+    skipped?: number
+    remaining?: number
+    backfilling?: boolean
+    durationMs?: number
+}
+
+/** Most recent runs first. */
+export async function recentRuns(limit: number): Promise<Run[]> {
+    const runs: Run[] = []
+    for await (const entry of kv.list<Run>({ prefix: ['runs'] }, { reverse: true, limit })) {
+        runs.push(entry.value)
+    }
+    return runs
+}
+
+/** Tweets that have failed at least once and haven't been mirrored since. */
+export async function pendingAttempts(): Promise<Array<{ guid: string, attempts: number }>> {
+    const pending = []
+    for await (const entry of kv.list<number>({ prefix: ['attempts'] })) {
+        pending.push({ guid: entry.key[1] as string, attempts: entry.value })
+    }
+    return pending
+}
+
+/** The lock, if a run currently holds it. */
+export async function getLock(): Promise<Lock | null> {
+    const lock = (await kv.get<Lock>(['lock'])).value
+    return lock && new Date(lock.expiresAt).getTime() > Date.now() ? lock : null
 }
 
 export async function getLastRun(): Promise<unknown> {

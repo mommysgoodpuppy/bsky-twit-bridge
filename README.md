@@ -12,6 +12,21 @@ and exits. `Deno.cron` won't start a tick while the previous one is still runnin
 `GET /` reports the last run. `POST /run` triggers a run manually (useful for
 kicking off the first backfill) and is disabled unless `RUN_TOKEN` is set.
 
+## status page
+
+Opened in a browser, `GET /` is a status page (`src/dashboard.ts`): a health
+verdict, the last week of runs, tweets that keep failing, and the latest mirrors.
+It reloads every minute. The verdict is one of:
+
+- **failing**: the last run errored (and says so when X rejected the cookies)
+- **stale**: no run for three cron intervals, so cron has stopped firing
+- **needs attention**: tweets are failing repeatedly, or no run has happened yet
+- **paused** / **healthy**
+
+`GET /status.json` returns the same data as JSON. Scripts that request `/`
+without asking for HTML still get the original short JSON. Each run is kept in KV
+under `['runs', <time>]` for a week, after which KV expires it.
+
 State lives in **Deno KV**, not a file — Deploy's filesystem isn't durable between
 invocations, so a posts.json would be lost and everything would be re-mirrored.
 
